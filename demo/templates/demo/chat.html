@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programming Club Chat</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        /* CSS Variables for Dark / Light Mode */
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-chat: #eef2f5;
+            --header-bg: #1e293b;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --bubble-bg: #ffffff;
+            --bubble-border: #e2e8f0;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-chat: #0f172a;
+            --header-bg: #020617;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+            --bubble-bg: #1e293b;
+            --bubble-border: #334155;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        #chat-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-secondary);
+        }
+
+        /* Header */
+        #chat-header {
+            background-color: var(--header-bg);
+            color: #ffffff;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        #chat-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .nav-btn {
+            color: #f8fafc;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 14px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-btn.active {
+            background: var(--accent-color);
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #ffffff;
+            font-size: 1.1rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .theme-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Messages Area */
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 32px;
+            background-color: var(--bg-chat);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-bubble {
+            background-color: var(--bubble-bg);
+            border: 1px solid var(--bubble-border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            box-shadow: var(--shadow);
+            max-width: 75%;
+            align-self: flex-start;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .message-sender {
+            font-weight: 600;
+            color: var(--accent-color);
+            font-size: 0.95rem;
+        }
+
+        .message-text {
+            margin: 0;
+            color: var(--text-primary);
+            line-height: 1.5;
+            font-size: 1rem;
+        }
+
+        /* Delete Button */
+        .delete-form {
+            margin: 0;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            font-size: 1rem;
+            opacity: 0.4;
+            cursor: pointer;
+            padding: 0;
+            transition: opacity 0.2s ease, transform 0.1s;
+        }
+
+        .delete-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Input Form Area */
+        .chat-input-area {
+            padding: 20px 32px;
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chat-input-area form {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chat-input-area p {
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .chat-input-area input[type="text"],
+        .chat-input-area textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .chat-input-area input[type="text"]:focus,
+        .chat-input-area textarea:focus {
+            border-color: var(--accent-color);
+        }
+
+        .chat-input-area label {
+            display: none;
+        }
+
+        .chat-input-area button[type="submit"] {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+
+        .chat-input-area button[type="submit"]:hover {
+            background-color: var(--accent-hover);
+        }
+
+        #chat-container {
+        /* Ensure this is present so the absolute positioning works relative to the container */
+        position: relative;
+        }
+
+        #new-message-btn {
+            position: absolute;
+            bottom: 100px; /* Sits just above the input area */
+            right: 40px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none; /* Hidden initially */
+            z-index: 50;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        #new-message-btn:hover {
+            background-color: var(--accent-hover);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="chat-header">
+        <h2>Programming Club Q&A</h2>
+
+        <div class="header-actions">
+            <!-- Channel Navigation -->
+            <a href="{% url 'chat' room_id='1536838651273814134' %}"
+               class="nav-btn {% if room_id == '1536838651273814134' %}active{% endif %}">
+               # General
+            </a>
+
+            {% if user.is_staff %}
+            <a href="{% url 'chat' room_id='1536840542359519242' %}"
+               class="nav-btn {% if room_id == '1536840542359519242' %}active{% endif %}">
+               # Planning
+            </a>
+
+            <a href="{% url 'chat' room_id='bug-report' %}"
+               class="nav-btn {% if room_id == 'bug-report' %}active{% endif %}">
+               # Bug Report
+            </a>
+            {% endif %}
+            <!-- Inside <div class="header-actions">, add the new tab: -->
+            <!--<a href="{% url 'chat' room_id='ai-assistant' %}"-->
+            <!--   class="nav-btn {% if room_id == 'ai-assistant' %}active{% endif %}">-->
+            <!--   🤖 AI Q&A-->
+            <!--</a>-->
+
+            <a href="{% url 'home' %}" class="nav-btn" style="margin-left: 10px;">Home</a>
+
+            <!-- Dark/Light Theme Toggle Button -->
+            <button class="theme-toggle-btn" id="theme-toggle" title="Toggle Theme">
+                🌙
+            </button>
+        </div>
+    </div>
+
+    <!-- Messages Container with HTMX Polling -->
+    <div class="chat-messages"
+         id="chat-messages"
+         hx-get="{% url 'chat_messages_partial' room_id=room_id %}"
+         hx-trigger="every 3s"
+         hx-swap="innerHTML">
+        {% include 'demo/messages_partial.html' %}
+    </div>
+
+    <!-- Floating New Message Button -->
+    <button id="new-message-btn" onclick="scrollToBottom()">
+        ↓ New Messages
+    </button>
+
+    <!-- Replace your existing .chat-input-area with this conditional block: -->
+    <div class="chat-input-area">
+        {% if room_id == 'ai-assistant' %}
+            <!-- AI-Specific Form -->
+            <form action="" method="POST" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                {% csrf_token %}
+
+                <div style="display: flex; gap: 12px;">
+                    <!-- Placeholder for editor files -->
+                    <select name="selected_file" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                        <option value="">-- Choose a file from Editor (Optional) --</option>
+                        <option value="main.py">main.py</option>
+                    </select>
+                </div>
+
+                <!-- Code Snippet Area -->
+                <textarea name="code_snippet" rows="3" placeholder="Paste optional code snippet here..."
+                    style="resize: none; overflow-y: hidden; box-sizing: border-box;"></textarea>
+
+                <!-- Main Message Area -->
+                <div style="display: flex; gap: 12px; align-items: flex-end; width: 100%;">
+                    <textarea name="message_text" rows="1" placeholder="Ask Gemini a question..." required
+                        style="flex-grow: 1; resize: none; overflow-y: hidden; box-sizing: border-box; min-height: 46px; padding-top: 14px;"></textarea>
+                    <button type="submit" style="height: 46px;">Ask AI</button>
+                </div>
+            </form>
+        {% else %}
+            <!-- Standard Chat Form -->
+            <form action="" method="POST">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit">Send</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    const chatBox = document.getElementById('chat-messages');
+    const newMsgBtn = document.getElementById('new-message-btn');
+
+    // Auto-scroll on initial load
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    let isAtBottom = true;
+    let preSwapHeight = 0;
+    const threshold = 150; // Pixels from bottom to be considered "at the bottom"
+
+    // 1. Check scroll position & height BEFORE HTMX swaps in new messages
+    document.body.addEventListener('htmx:beforeSwap', function(evt) {
+        if (evt.detail.target.id === 'chat-messages') {
+            isAtBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) <= threshold;
+            preSwapHeight = chatBox.scrollHeight;
+        }
+    });
+
+    // 2. Apply scroll or show button AFTER HTMX updates content
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'chat-messages') {
+            if (isAtBottom) {
+                // If they were at the bottom, auto-scroll to the new bottom
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } else if (chatBox.scrollHeight > preSwapHeight) {
+                // If they scrolled up AND the chat got taller, show the button
+                newMsgBtn.style.display = 'block';
+            }
+        }
+    });
+
+    // 3. Hide the button if the user manually scrolls down to the bottom
+    chatBox.addEventListener('scroll', function() {
+        if ((chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) <= threshold) {
+            newMsgBtn.style.display = 'none';
+        }
+    });
+
+    // 4. Function called when the button is clicked
+    function scrollToBottom() {
+        chatBox.scrollTop = chatBox.scrollHeight;
+        newMsgBtn.style.display = 'none';
+    }
+
+    // Dark/Light Theme Toggle Logic
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const currentTheme = localStorage.getItem('theme') || 'light';
+
+    if (currentTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeToggleBtn.textContent = '☀️';
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+        let theme = document.documentElement.getAttribute('data-theme');
+        if (theme === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+            themeToggleBtn.textContent = '🌙';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            themeToggleBtn.textContent = '☀️';
+        }
+    });
+
+    // Auto-resize textarea function
+    function autoResizeTextarea(textarea) {
+        // Reset height to auto to shrink on delete, then set to scrollHeight to expand
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    // Attach listener to the entire document to handle typing dynamically
+    document.addEventListener('input', function(event) {
+        if (event.target.tagName.toLowerCase() === 'textarea') {
+            autoResizeTextarea(event.target);
+        }
+    });
+
+    // Optionally, run it once on page load just in case text is pre-filled or refreshed
+    document.querySelectorAll('textarea').forEach(autoResizeTextarea);
+</script>
+
+</body>
+</html>

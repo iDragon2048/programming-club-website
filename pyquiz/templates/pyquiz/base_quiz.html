@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Python Club</title>
+</head>
+<body>
+    <p>PYTHON IS GOATED</p>
+    <p>Club members:</p>
+    <table>
+        {% for member in members %}
+        <tr>
+            <th>• {{ member.first_name }} {{ member.last_name }}</th>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

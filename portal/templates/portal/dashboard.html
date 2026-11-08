@@ -1,0 +1,855 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js CDN for dynamic tabs & filtering -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.x.x/dist/cdn.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+    [x-cloak] { display: none !important; }
+    </style>
+</head>
+<!-- Updated <body> tag x-data configuration -->
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased" x-data="dashboard">>
+
+    <!-- Top Navigation Bar -->
+    <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg font-bold text-xl">
+                <i class="fa-solid fa-code"></i>
+            </div>
+            <a href="{% url 'home' %}"><span class="font-bold text-xl tracking-wide text-white">Programming Club Dashboard</span></a>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span class="text-sm text-slate-400">Welcome back, <strong class="text-indigo-400">{{ request.user.username }}</strong></span>
+            <div class="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm text-white">
+                {{ request.user.username|slice:":1"|upper }}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Header & Tag Filter Bar -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Student Dashboard</h1>
+                <p class="text-slate-400 text-sm mt-1">Track your required assignments, practice challenges, and attendance.</p>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Staff Only Button -->
+                {% if request.user.is_staff %}
+                    <button
+                        @click="openAddAssignmentModal()"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        Add Assignment
+                    </button>
+
+                    <button
+                        @click="openAddMeetingModal()"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors shadow-sm">
+                        <i class="fa-solid fa-calendar-plus text-xs"></i>
+                        Add Meeting
+                    </button>
+                {% endif %}
+                {% if request.user.is_superuser %}
+                <a
+                    href="{{ 'vocab' }}"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 transition-colors shadow-sm">
+                    <i class="fa-solid fa-calendar-plus text-xs"></i>
+                    Vocab
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Main Navigation Tabs -->
+        <div class="border-b border-slate-700 flex space-x-8">
+            <button
+                @click="activeTab = 'assignments'"
+                :class="activeTab === 'assignments' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                class="pb-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Assignment Hub</span>
+            </button>
+            <button
+                @click="activeTab = 'meetings'"
+                :class="activeTab === 'meetings' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                class="pb-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-video"></i>
+                <span>Meeting Hub</span>
+            </button>
+        </div>
+
+        <!-- TAB 1: ASSIGNMENT HUB -->
+        <section x-show="activeTab === 'assignments'" class="space-y-6">
+
+            <!-- Combined Filter Bar -->
+            <div class="flex items-center space-x-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-layer-group text-indigo-400"></i>
+                    <select x-model="selectedStatus" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg focus:ring-indigo-500 block p-2">
+                        <option value="all">All Statuses</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="optional">Optional Practice</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-filter text-indigo-400"></i>
+                    <select x-model="selectedTag" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg focus:ring-indigo-500 block p-2">
+                        <option value="all">All Tags</option>
+                        {% for tag in tags %}
+                            <option value="{{ tag.name|slugify }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Single Assignment Loop -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for item in all_assignments %}
+                <div
+                    x-data="{
+                        category: '{{ item.computed_category }}',
+                        tags: [{% for t in item.assignment.tags.all %}'{{ t.name|slugify }}',{% endfor %}]
+                    }"
+                    x-show="(selectedStatus === 'all' || selectedStatus === category) && (selectedTag === 'all' || tags.includes(selectedTag))"
+                    @click="activeAssignment = { ... }; modalOpen = true"
+                    :class="{
+                        'border-l-4 border-rose-500 border-y border-r hover:border-slate-600': category === 'overdue',
+                        'hover:border-amber-500/50': category === 'optional',
+                        'border-slate-700/60 opacity-90 hover:border-indigo-500/60': category === 'completed',
+                        'hover:border-slate-600': category === 'upcoming' || category === 'in_progress'
+                    }"
+                    class="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-md transition cursor-pointer flex flex-col h-full">
+
+                    <!-- Badges -->
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="bg-slate-700 text-slate-300 text-xs px-2.5 py-1 rounded-md font-mono">{{ item.assignment.get_platform_display }}</span>
+
+                        {% if item.computed_category == 'overdue' %}
+                            <span class="text-xs font-semibold text-rose-400 bg-rose-950/60 px-2 py-1 rounded">Due: {{ item.assignment.due_date|date:"M d, Y" }}</span>
+                        {% elif item.computed_category == 'completed' %}
+                            <span class="text-xs font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-1 rounded">Done: {{ item.completed_at|date:"M d, Y"|default:"Complete" }}</span>
+                        {% elif item.computed_category == 'optional' %}
+                            <span class="text-xs font-semibold text-amber-400">Optional</span>
+                        {% else %}
+                            <span class="text-xs font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-1 rounded">
+                                {% if item.assignment.due_date %}Due: {{ item.assignment.due_date|date:"M d, Y" }}{% else %}No Due Date{% endif %}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Title & Description -->
+                    <h3 class="text-lg font-bold mb-2 {% if item.computed_category == 'completed' %}text-slate-200 line-through decoration-slate-500{% else %}text-white{% endif %}">
+                        {{ item.assignment.title }}
+                    </h3>
+
+                    {% if item.computed_category != 'completed' %}
+                        <p class="text-sm text-slate-400 line-clamp-2 mb-4 flex-grow">{{ item.assignment.description|default:"No description provided." }}</p>
+                    {% else %}
+                        <div class="flex-grow"></div> <!-- Spacer to push footer down -->
+                    {% endif %}
+
+                    <!-- Tags -->
+                    <div class="flex flex-wrap gap-1 mb-4">
+                        {% for tag in item.assignment.tags.all %}
+                            <span class="bg-slate-900 text-slate-400 text-xs px-2 py-0.5 rounded">#{{ tag.name }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="flex justify-between items-center pt-3 border-t {% if item.computed_category == 'completed' %}border-slate-700/60{% else %}border-slate-700{% endif %}">
+                        {% if item.computed_category != 'completed' %}
+                            <span class="text-xs px-2 py-1 rounded text-slate-300 bg-slate-700">{{ item.get_status_display }}</span>
+                        {% else %}
+                            <span></span> <!-- Empty span to maintain flex-between layout -->
+                        {% endif %}
+
+                        {% if item.assignment.url %}
+                            <a href="{{ item.assignment.url }}" @click.stop target="_blank" class="text-sm font-semibold flex items-center space-x-1
+                                {% if item.computed_category == 'overdue' or item.computed_category == 'upcoming' or item.computed_category == 'in_progress' %} text-indigo-400 hover:text-indigo-300
+                                {% elif item.computed_category == 'optional' %} text-amber-400 hover:text-amber-300
+                                {% else %} text-slate-400 hover:text-slate-200 {% endif %}">
+
+                                {% if item.computed_category == 'completed' %} <span>Review</span>
+                                {% elif item.computed_category == 'optional' %} <span>Challenge</span>
+                                {% else %} <span>Solve</span> {% endif %}
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+
+                    {% if request.user.is_staff %}
+                        <button
+                            @click.stop="openEditAssignmentModal({
+                                id: '{{ item.assignment.id }}',
+                                title: '{{ item.assignment.title|escapejs }}',
+                                platform: '{{ item.assignment.platform }}',
+                                is_required: '{{ item.assignment.is_required|yesno:'True,False' }}',
+                                due_date: '{{ item.assignment.due_date|date:'Y-m-d\TH:i' }}',
+                                url: '{{ item.assignment.url|escapejs }}',
+                                description: '{{ item.assignment.description|escapejs }}',
+                                assignedUserIds: [{% for u in item.assignment.assigned_users.all %}'{{ u.id }}'{% if not forloop.last %},{% endif %}{% endfor %}]
+                            })"
+                            class="text-xs text-indigo-400 hover:text-indigo-300 mt-2 text-left">
+                            <i class="fa-solid fa-pen-to-square mr-1"></i>Edit Assignment
+                        </button>
+                    {% endif %}
+                </div>
+                {% empty %}
+                    <p class="text-slate-500 text-sm italic col-span-3">No assignments found for the current filters.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- TAB 3: MEETINGS HUB -->
+        <section x-show="activeTab === 'meetings'" class="space-y-6">
+
+            <!-- Sub-navigation for Meetings -->
+            <div class="flex space-x-4 border-b border-slate-700 pb-3">
+                <button
+                    @click="meetingTab = 'upcoming'"
+                    :class="meetingTab === 'upcoming' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                    Recent & Upcoming Meetings
+                </button>
+                <button
+                    @click="meetingTab = 'missed'"
+                    :class="meetingTab === 'missed' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                    Missed Meetings
+                </button>
+            </div>
+
+            <!-- Recent & Upcoming Meetings List -->
+            <div x-show="meetingTab === 'upcoming'" class="space-y-4">
+                {% for meeting in upcoming_meetings %}
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-950 text-indigo-400 border border-indigo-800">{{ meeting.date }}</span>
+                            <h3 class="text-xl font-bold text-white">{{ meeting.topic }}</h3>
+                        </div>
+                        <p class="text-slate-400 text-sm pt-1">{{ meeting.description|default:"No agenda specified." }}</p>
+                    </div>
+
+                    <!-- Recap Links if available -->
+                    <div class="flex flex-wrap gap-2 items-center">
+                        {% if request.user.is_staff %}
+                            <button
+                                @click="
+                                    activeMeeting = { id: '{{ meeting.id }}', topic: '{{ meeting.topic|escapejs }}' };
+                                    attendedUsers = [{% for u in meeting.attended_users.all %}'{{ u.id }}',{% endfor %}];
+                                    attendanceModalOpen = true
+                                "
+                                class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg flex items-center space-x-1 transition">
+                                <i class="fa-solid fa-clipboard-user text-emerald-400"></i>
+                                <span>Take Attendance</span>
+                            </button>
+                        {% endif %}
+                        {% if meeting.recap_video_1 %}
+                            <a href="{{ meeting.recap_video_1 }}" @click.stop target="_blank" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg flex items-center space-x-1">
+                                <i class="fa-solid fa-play text-red-400"></i>
+                                <span>Recap 1</span>
+                            </a>
+                        {% endif %}
+                        {% if meeting.recap_video_2 %}
+                            <a href="{{ meeting.recap_video_2 }}" @click.stop target="_blank" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg flex items-center space-x-1">
+                                <i class="fa-solid fa-play text-red-400"></i>
+                                <span>Recap 2</span>
+                            </a>
+                        {% endif %}
+                        {% if meeting.recap_video_3 %}
+                            <a href="{{ meeting.recap_video_3 }}" @click.stop target="_blank" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg flex items-center space-x-1">
+                                <i class="fa-solid fa-play text-red-400"></i>
+                                <span>Recap 3</span>
+                            </a>
+                        {% endif %}
+
+                        <!-- Edit Meeting Button -->
+                        <button
+                            @click="openEditMeetingModal({
+                                id: '{{ meeting.id }}',
+                                topic: '{{ meeting.topic|escapejs }}',
+                                date: '{{ meeting.date|date:'Y-m-d' }}',
+                                description: '{{ meeting.description|escapejs }}',
+                                recap_video_1: '{{ meeting.recap_video_1|escapejs }}',
+                                recap_video_2: '{{ meeting.recap_video_2|escapejs }}',
+                                recap_video_3: '{{ meeting.recap_video_3|escapejs }}'
+                            })"
+                            class="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white text-xs px-3 py-2 rounded-lg flex items-center space-x-1.5 transition">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>Edit</span>
+                        </button>
+
+                        <!-- Delete Meeting Button -->
+                        <form action="{% url 'delete_meeting' meeting.id %}" method="POST" @click.stop x-on:submit="return confirm('Are you sure you want to delete this meeting?')">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-slate-700 hover:bg-rose-950/80 border border-transparent hover:border-rose-800 text-rose-400 text-xs px-3 py-2 rounded-lg flex items-center space-x-1.5 transition">
+                                <i class="fa-solid fa-trash"></i>
+                                <span>Delete</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                    <p class="text-slate-500 text-sm italic">No upcoming or recent meetings logged.</p>
+                {% endfor %}
+            </div>
+
+            <!-- Missed Meetings List -->
+            <div x-show="meetingTab === 'missed'" class="space-y-4">
+                {% for meeting in missed_meetings %}
+                <div class="bg-slate-800 rounded-xl p-6 border-l-4 border-rose-500 border-y border-r border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded bg-rose-950 text-rose-400 border border-rose-800">{{ meeting.date }}</span>
+                            <h3 class="text-xl font-bold text-white">{{ meeting.topic }}</h3>
+                            <span class="text-xs bg-rose-900/40 text-rose-300 px-2 py-0.5 rounded">Absent</span>
+                        </div>
+                        <p class="text-slate-400 text-sm pt-1">{{ meeting.description|default:"No agenda specified." }}</p>
+                    </div>
+
+                    <!-- Catch up videos -->
+                    <div class="flex flex-wrap gap-2 items-center">
+                        {% if request.user.is_staff %}
+                            <button
+                                @click="
+                                    activeMeeting = { id: '{{ meeting.id }}', topic: '{{ meeting.topic|escapejs }}' };
+                                    attendedUsers = [{% for u in meeting.attended_users.all %}'{{ u.id }}',{% endfor %}];
+                                    attendanceModalOpen = true
+                                "
+                                class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg flex items-center space-x-1 transition">
+                                <i class="fa-solid fa-clipboard-user text-emerald-400"></i>
+                                <span>Take Attendance</span>
+                            </button>
+                        {% endif %}
+                        <span class="text-xs text-slate-400 mr-2">Catch up:</span>
+                        {% if meeting.recap_video_1 %}
+                            <a href="{{ meeting.recap_video_1 }}" @click.stop target="_blank" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg flex items-center space-x-1">
+                                <i class="fa-solid fa-play text-rose-400"></i>
+                                <span>Watch Video</span>
+                            </a>
+                        {% else %}
+                            <span class="text-xs text-slate-500 italic">No recap video uploaded yet</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                    <p class="text-slate-500 text-sm italic">Great job! You haven't missed any meetings.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Assignment Detail Modal -->
+    <div x-show="modalOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         @keydown.escape.window="modalOpen = false"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+         style="display: none;">
+
+        <div @click.away="modalOpen = false"
+             class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl relative">
+
+            <!-- Header -->
+            <div class="flex justify-between items-start border-b border-slate-700 pb-4">
+                <div>
+                    <span class="bg-indigo-950 text-indigo-400 text-xs px-2.5 py-1 rounded font-mono font-semibold border border-indigo-800" x-text="activeAssignment.platform"></span>
+                    <h2 class="text-2xl font-bold text-white mt-2" x-text="activeAssignment.title"></h2>
+                </div>
+                <button @click="modalOpen = false" class="text-slate-400 hover:text-white text-xl p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Meta info -->
+            <div class="flex flex-wrap gap-4 text-sm text-slate-300">
+                <div>
+                    <strong class="text-slate-400 block text-xs">Status</strong>
+                    <span class="font-semibold text-indigo-300" x-text="activeAssignment.status"></span>
+                </div>
+                <div>
+                    <strong class="text-slate-400 block text-xs">Due Date</strong>
+                    <span class="font-semibold text-rose-300" x-text="activeAssignment.dueDate"></span>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div>
+                <strong class="text-slate-400 block text-xs mb-1">Description & Instructions</strong>
+                <p class="text-slate-300 text-sm whitespace-pre-line bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 leading-relaxed" x-text="activeAssignment.description"></p>
+            </div>
+
+            <!-- Tags -->
+            <template x-if="activeAssignment.tags && activeAssignment.tags.length > 0">
+                <div class="flex flex-wrap gap-1.5">
+                    <template x-for="tag in activeAssignment.tags" :key="tag">
+                        <span class="bg-slate-900 text-slate-400 text-xs px-2.5 py-1 rounded-md border border-slate-700" x-text="'#' + tag"></span>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Action Footer -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-700">
+                <button @click="modalOpen = false" class="text-slate-400 hover:text-white text-sm font-medium">Close</button>
+                <template x-if="activeAssignment.url">
+                    <a :href="activeAssignment.url" target="_blank" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center space-x-2 transition shadow">
+                        <span>Go to Assignment Link</span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                    </a>
+                </template>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Add Assignment Model -->
+    <div
+        x-show="addModalOpen"
+        x-cloak
+        @keydown.escape.window="addModalOpen = false"
+        class="fixed inset-0 z-50 overflow-y-auto"
+        aria-labelledby="add-modal-title"
+        role="dialog"
+        aria-modal="true">
+
+        <!-- Backdrop -->
+        <div
+            x-show="addModalOpen"
+            x-transition:enter="ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            @click="addModalOpen = false"
+            class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+
+        <!-- Modal Panel Container -->
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div
+                x-show="addModalOpen"
+                x-transition:enter="ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="ease-in duration-150"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="relative w-full max-w-xl rounded-xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
+
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-700">
+                    <h3 id="add-modal-title" class="text-lg font-bold text-white" x-text="formAssignment.id ? 'Edit Assignment' : 'Add New Assignment'">
+                    </h3>
+                    <button
+                        @click="addModalOpen = false"
+                        class="rounded-lg p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Form -->
+                <form :action="formAssignment.id ? '{% url 'edit_assignment' 0 %}'.replace('0', formAssignment.id) : '{% url 'add_assignment' %}'" method="POST" class="mt-4 space-y-4">
+                    {% csrf_token %}
+
+                    <!-- Title -->
+                    <div>
+                        <label for="title" class="block text-sm font-semibold text-slate-200">Title</label>
+                        <input type="text" name="title" id="title" x-model="formAssignment.title" required
+                            class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                    </div>
+
+                    <!-- Platform & Type Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="platform" class="block text-sm font-semibold text-slate-200">Platform</label>
+                            <select name="platform" id="platform" x-model="formAssignment.platform"
+                                class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                                {% for key, value in platforms %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="is_required" class="block text-sm font-semibold text-slate-200">Type</label>
+                            <select name="is_required" id="is_required" x-model="formAssignment.is_required"
+                                class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                                <option value="True">Required Assignment</option>
+                                <option value="False">Optional Practice</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Due Date & Link Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="due_date" class="block text-sm font-semibold text-slate-200">Due Date</label>
+                            <input type="datetime-local" name="due_date" id="due_date" x-model="formAssignment.due_date"
+                                class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label for="url" class="block text-sm font-semibold text-slate-200">URL</label>
+                            <input type="url" name="url" id="url" x-model="formAssignment.url" placeholder="https://..."
+                                class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Assign Users Section with Working Select All -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-semibold text-slate-200">Assign Users</label>
+                            <button
+                                type="button"
+                                @click="selectedUsers = (selectedUsers.length === allUserIds.length) ? [] : [...allUserIds]"
+                                class="text-xs text-indigo-400 hover:text-indigo-300 transition">
+                                <span x-text="selectedUsers.length === allUserIds.length ? 'Deselect All' : 'Select All'"></span>
+                            </button>
+                        </div>
+
+                        <div class="max-h-48 overflow-y-auto space-y-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
+                            {% for u in all_users %}
+                            <label class="flex items-center justify-between p-1.5 rounded hover:bg-slate-800 cursor-pointer text-sm text-slate-300 hover:text-white">
+                                <span>{{ u.username }}</span>
+                                <input
+                                    type="checkbox"
+                                    name="assigned_users"
+                                    value="{{ u.id }}"
+                                    x-model="selectedUsers"
+                                    class="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900">
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Tags Multiselect -->
+                    <div>
+                        <label for="assignment_tags" class="block text-sm font-semibold text-slate-200">Tags</label>
+                        <select name="tags" id="assignment_tags" multiple
+                            class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm h-24">
+                            {% for tag in tags %}
+                            <option value="{{ tag.id }}">#{{ tag.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-slate-400 mt-1">Hold Ctrl (Cmd on Mac) to pick multiple tags.</p>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label for="description" class="block text-sm font-semibold text-slate-200">Description</label>
+                        <textarea name="description" id="description" x-model="formAssignment.description" rows="3"
+                            class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"></textarea>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+                        <button
+                            type="button"
+                            @click="addModalOpen = false"
+                            class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none transition shadow"
+                            x-text="formAssignment.id ? 'Update Assignment' : 'Save Assignment'">
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Add / Edit Meeting Modal -->
+    <div
+        x-show="addMeetingModalOpen"
+        x-cloak
+        @keydown.escape.window="addMeetingModalOpen = false"
+        class="fixed inset-0 z-50 overflow-y-auto"
+        aria-labelledby="add-meeting-modal-title"
+        role="dialog"
+        aria-modal="true">
+
+        <!-- Backdrop -->
+        <div
+            x-show="addMeetingModalOpen"
+            x-transition:enter="ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            @click="addMeetingModalOpen = false"
+            class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+
+        <!-- Modal Panel Container -->
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div
+                x-show="addMeetingModalOpen"
+                x-transition:enter="ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="ease-in duration-150"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="relative w-full max-w-lg rounded-xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
+
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-700">
+                    <h3 id="add-meeting-modal-title" class="text-lg font-bold text-white" x-text="formMeeting.id ? 'Edit Meeting' : 'Add New Meeting'">
+                    </h3>
+                    <button
+                        @click="addMeetingModalOpen = false"
+                        class="rounded-lg p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Dynamic Form Action -->
+                <form :action="formMeeting.id ? '{% url 'edit_meeting' 0 %}'.replace('0', formMeeting.id) : '{% url 'add_meeting' %}'" method="POST" class="mt-4 space-y-4">
+                    {% csrf_token %}
+
+                    <div>
+                        <label for="topic" class="block text-sm font-semibold text-slate-200">Topic</label>
+                        <input type="text" name="topic" id="topic" x-model="formMeeting.topic" required
+                            class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                    </div>
+
+                    <div>
+                        <label for="date" class="block text-sm font-semibold text-slate-200">Date</label>
+                        <input type="date" name="date" id="date" x-model="formMeeting.date" required
+                            class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                    </div>
+
+                    <div>
+                        <label for="meeting_description" class="block text-sm font-semibold text-slate-200">Description / Agenda</label>
+                        <textarea name="description" id="meeting_description" x-model="formMeeting.description" rows="3"
+                            class="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"></textarea>
+                    </div>
+
+                    <!-- Recap Video URLs -->
+                    <div class="space-y-3 pt-2">
+                        <label class="block text-sm font-semibold text-slate-200">Recap Links (Optional)</label>
+                        <input type="url" name="recap_video_1" x-model="formMeeting.recap_video_1" placeholder="Recap Video 1 URL"
+                            class="block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                        <input type="url" name="recap_video_2" x-model="formMeeting.recap_video_2" placeholder="Recap Video 2 URL"
+                            class="block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                        <input type="url" name="recap_video_3" x-model="formMeeting.recap_video_3" placeholder="Recap Video 3 URL"
+                            class="block w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm">
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+                        <button
+                            type="button"
+                            @click="addMeetingModalOpen = false"
+                            class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none transition shadow"
+                            x-text="formMeeting.id ? 'Update Meeting' : 'Save Meeting'">
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Modal -->
+    <div
+        x-show="attendanceModalOpen"
+        x-cloak
+        @keydown.escape.window="attendanceModalOpen = false"
+        class="fixed inset-0 z-50 overflow-y-auto"
+        aria-labelledby="attendance-modal-title"
+        role="dialog"
+        aria-modal="true">
+
+        <!-- Backdrop -->
+        <div
+            x-show="attendanceModalOpen"
+            x-transition:enter="ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            @click="attendanceModalOpen = false"
+            class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+
+        <!-- Modal Panel Container -->
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div
+                x-show="attendanceModalOpen"
+                x-transition:enter="ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="ease-in duration-150"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="relative w-full max-w-lg rounded-xl bg-slate-800 border border-slate-700 p-6 shadow-2xl">
+
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-700">
+                    <div>
+                        <h3 id="attendance-modal-title" class="text-lg font-bold text-white">
+                            Record Attendance
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5" x-text="activeMeeting.topic ? activeMeeting.topic : 'Meeting Attendance'"></p>
+                    </div>
+                    <button
+                        @click="attendanceModalOpen = false"
+                        class="rounded-lg p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Form -->
+                <form :action="'{% url 'record_attendance' 0 %}'.replace('0', activeMeeting.id || '')" method="POST" class="mt-4 space-y-4">
+                    {% csrf_token %}
+
+                    <!-- Quick Toggle Header -->
+                    <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-lg border border-slate-700/60">
+                        <span class="text-xs font-semibold text-slate-300">Mark Attendees</span>
+                        <button
+                            type="button"
+                            @click="selectAllAttendance = !selectAllAttendance; attendedUsers = selectAllAttendance ? [...allUserIds] : []"
+                            class="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition">
+                            <span x-text="selectAllAttendance ? 'Deselect All' : 'Mark All Present'"></span>
+                        </button>
+                    </div>
+
+                    <!-- User Checklist -->
+                    <div class="max-h-60 overflow-y-auto space-y-2 pr-1 border border-slate-700 rounded-lg p-3 bg-slate-900/40">
+                        {% for student in all_users %}
+                        <label class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-700/50 cursor-pointer text-sm">
+                            <div class="flex items-center space-x-3">
+                                <input
+                                    type="checkbox"
+                                    name="attended_users"
+                                    value="{{ student.id }}"
+                                    x-model="attendedUsers"
+                                    class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-800">
+                                <span class="text-slate-200 font-medium">{{ student.username }}</span>
+                            </div>
+                            <span
+                                :class="attendedUsers.includes('{{ student.id }}') ? 'bg-emerald-950 text-emerald-400 border-emerald-800' : 'bg-slate-800 text-slate-500 border-slate-700'"
+                                class="text-xs px-2 py-0.5 rounded border transition">
+                                <span x-text="attendedUsers.includes('{{ student.id }}') ? 'Present' : 'Absent'"></span>
+                            </span>
+                        </label>
+                        {% empty %}
+                        <p class="text-xs text-slate-500 italic p-2">No students registered.</p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+                        <button
+                            type="button"
+                            @click="attendanceModalOpen = false"
+                            class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 focus:outline-none transition shadow">
+                            Save Attendance
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('dashboard', () => ({
+                activeTab: 'assignments',
+                selectedTag: 'all',
+                selectedStatus: 'all',
+                meetingTab: 'upcoming',
+                modalOpen: false,
+                activeAssignment: {},
+                addModalOpen: false,
+                addMeetingModalOpen: false,
+                attendanceModalOpen: false,
+                activeMeeting: {},
+
+                // User Lists
+                allUserIds: [{% for u in all_users %}'{{ u.id }}',{% endfor %}],
+                selectedUsers: [],
+                attendedUsers: [],
+                selectAllAttendance: false,
+
+                // Assignment Form State
+                formAssignment: {
+                    id: null,
+                    title: '',
+                    platform: 'PC',
+                    is_required: 'True',
+                    due_date: '',
+                    url: '',
+                    description: ''
+                },
+
+                openAddAssignmentModal() {
+                    this.formAssignment = { id: null, title: '', platform: 'PC', is_required: 'True', due_date: '', url: '', description: '' };
+                    this.selectedUsers = [];
+                    this.addModalOpen = true;
+                },
+
+                openEditAssignmentModal(data) {
+                    this.formAssignment = { ...data };
+                    this.selectedUsers = data.assignedUserIds || [];
+                    this.addModalOpen = true;
+                },
+
+                // Meeting Form State
+                formMeeting: {
+                    id: null,
+                    topic: '',
+                    date: '',
+                    description: '',
+                    recap_video_1: '',
+                    recap_video_2: '',
+                    recap_video_3: ''
+                },
+
+                openAddMeetingModal() {
+                    this.formMeeting = { id: null, topic: '', date: '', description: '', recap_video_1: '', recap_video_2: '', recap_video_3: '' };
+                    this.addMeetingModalOpen = true;
+                },
+
+                openEditMeetingModal(data) {
+                    this.formMeeting = { ...data };
+                    this.addMeetingModalOpen = true;
+                }
+            }))
+        })
+    </script>
+</body>
+</html>

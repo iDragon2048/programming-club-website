@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Cart - Standard Balck Edition{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Shopping Cart</h1>
+
+    {% if cart_items %}
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" class="border-0 bg-light">Product</th>
+                                    <th scope="col" class="border-0 bg-light">Price</th>
+                                    <th scope="col" class="border-0 bg-light">Quantity</th>
+                                    <th scope="col" class="border-0 bg-light">Total</th>
+                                    <th scope="col" class="border-0 bg-light">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cart_items %}
+                                <tr>
+                                    <td class="align-middle">
+                                        <div class="d-flex align-items-center">
+                                            {% if item.product.image %}
+                                                <img src="{{ item.product.image.url }}" alt="" width="50" class="rounded me-3">
+                                            {% else %}
+                                                <img src="https://dummyimage.com/50x50/dee2e6/6c757d.jpg" alt="" width="50" class="rounded me-3">
+                                            {% endif %}
+                                            <div>
+                                                <span class="fw-bold d-block">{{ item.product.name }}</span>
+
+                                                {% if item.selected_attributes %}
+                                                    <ul class="list-unstyled mb-0 mt-1 small text-muted">
+                                                        {% for key, value in item.selected_attributes.items %}
+                                                            <li><strong>{{ key }}:</strong> {{ value }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% endif %}
+                                                {% if item.custom_attributes.all %}
+                                                    <ul class="list-unstyled mb-0 mt-1 small text-muted">
+                                                        {% for attr in item.custom_attributes.all %}
+                                                            <li>
+                                                                <strong>{{ attr.option.name }}:</strong>
+                                                                {% if attr.option.input_type == 'file' and attr.file_value %}
+                                                                    <a href="{{ attr.file_value.url }}" target="_blank" class="text-decoration-none">📎 View Uploaded File</a>
+                                                                {% else %}
+                                                                    {{ attr.get_value }}
+                                                                {% endif %}
+                                                            </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="align-middle">
+                                        <div class="d-flex align-items-center">
+                                            <img src="{% static 'img/pytoken.svg' %}" width="20" height="20" class="me-1">
+                                            <span>{{ item.product.price }}</span>
+                                        </div>
+                                    </td>
+
+                                    <td class="align-middle">
+                                        <form action="{% url 'update_cart_item' item.id %}" method="POST">
+                                            {% csrf_token %}
+                                            <input type="number" name="quantity" value="{{ item.quantity }}" min="1">
+                                            <button type="submit" class="btn btn-sm btn-primary">Update</button>
+                                        </form>
+                                    </td>
+
+                                    <td class="align-middle">
+                                        <div class="d-flex align-items-center">
+                                            <img src="{% static 'img/pytoken.svg' %}" width="20" height="20" class="me-1">
+                                            <strong>{{ item.total_price }}</strong>
+                                            </div>
+                                    </td>
+
+                                    <td class="align-middle">
+                                        <a href="{% url 'remove_from_cart' item.id %}" class="text-danger">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light border-0">
+                    <h5 class="mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Subtotal</span>
+                        <div class="d-flex align-items-center">
+                            <img src="{% static 'img/pytoken.svg' %}" width="20" height="20" class="me-1">
+                            <span class="fw-bold">{{ total_price }}</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-4">
+                        <strong>Total</strong>
+                        <div class="d-flex align-items-center">
+                            <img src="{% static 'img/pytoken.svg' %}" width="24" height="24" class="me-2">
+                            <strong class="h5 mb-0">{{ total_price }}</strong>
+                        </div>
+                    </div>
+
+                    <a href="{% url 'checkout' %}" class="btn btn-dark w-100 py-2">Proceed to Checkout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        <div class="text-center py-5">
+            <h3 class="text-muted">Your cart is empty.</h3>
+            <a href="{% url 'home' %}" class="btn btn-primary mt-3">Go Shopping</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

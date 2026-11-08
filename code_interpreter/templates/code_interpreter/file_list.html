@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>File List</title>
+    <style>
+        /* Global Reset & Body */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #eef2f5;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    box-sizing: border-box;
+}
+
+/* Page Navigation / Action Links */
+body > a {
+    display: inline-block;
+    color: #ffffff;
+    background-color: #3498db;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 10px 20px;
+    margin: 0 5px 20px 5px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+body > a:hover {
+    background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+body > a:active {
+    transform: translateY(0);
+}
+
+/* Home Link Alternative Style (Header Dark) */
+body > a[href*="home"] {
+    background-color: #2c3e50;
+}
+
+body > a[href*="home"]:hover {
+    background-color: #1a252f;
+}
+
+/* File Card Container */
+.file {
+    background-color: #ffffff;
+    border: 1px solid #e1e4e8;
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    max-width: 800px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* File Title */
+.file h2 {
+    color: #2c3e50;
+    font-size: 1.5rem;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+/* Timestamp */
+.file small {
+    display: block;
+    color: #7f8c8d;
+    font-size: 0.85rem;
+    margin-bottom: 15px;
+}
+
+/* Edit Button inside Card */
+.file a {
+    display: inline-block;
+    color: #ffffff;
+    background-color: #3498db;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: bold;
+    padding: 6px 14px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.file a:hover {
+    background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+.file a:active {
+    transform: translateY(0);
+}
+
+/* Code Block Styling */
+.file pre {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border-radius: 6px;
+    padding: 15px;
+    overflow-x: auto;
+    margin: 0;
+}
+
+.file code {
+    font-family: 'Consolas', 'Courier New', Courier, monospace;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Empty State Message */
+p {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    background-color: #ffffff;
+    border: 1px solid #e1e4e8;
+    padding: 20px 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+    </style>
+</head>
+<body>
+
+<a href="{% url 'home' %}">Home</a>
+<a href="{% url 'editor' %}">Create New File</a>
+
+{% for file in files %}
+{% if request.user == file.creator %}
+    <div class="file">
+        <h2>{{ file.title }}</h2>
+        <small>Saved on: {{ file.creation_time }}</small>
+
+        <a href="{% url 'file_edit' pk=file.pk %}">Edit</a>
+
+        <details>
+            <summary>View Code</summary>
+            <pre><code>{{ file.code }}</code></pre>
+        </details>
+    </div>
+{% endif %}
+{% empty %}
+    <p>No snippets saved yet.</p>
+{% endfor %}
+</body>
+</html>

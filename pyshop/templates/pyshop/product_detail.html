@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}{{ product.name }} - My Shop{% endblock %}
+
+{% block content %}
+<div class="row mt-5">
+    <div class="col-md-6 mb-4">
+        {% if product.image %}
+            <img src="{{ product.image.url }}" class="img-fluid rounded shadow" alt="{{ product.name }}">
+        {% else %}
+            <img src="https://dummyimage.com/600x400/dee2e6/6c757d.jpg" class="img-fluid rounded" alt="No image">
+        {% endif %}
+    </div>
+
+    <div class="col-md-6">
+        <h1 class="display-5">{{ product.name }}</h1>
+        <div class="d-flex align-items-center">
+            <img src="{% static 'img/pytoken.svg' %}"
+                 alt="PyToken"
+                 width="24" height="24"
+                 class="me-2">
+
+            <span class="fw-bold text-dark">
+                {{ product.price }}
+            </span>
+        </div>
+
+        <p class="lead">{{ product.description }}</p>
+
+        <p><strong>Stock:</strong> {{ product.stock_qty }} units available</p>
+
+        <hr>
+
+        <form action="{% url 'add_to_cart' product.id %}" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row g-3 align-items-center mb-3">
+                <div class="col-auto">
+                    <label for="quantity" class="col-form-label">Quantity:</label>
+                </div>
+                <div class="col-auto">
+                    <input type="number" id="quantity" name="quantity" class="form-control" value="1" min="1" max="{{ product.stock_qty }}">
+                </div>
+            </div>
+            {% regroup product.attributes.all by name as attribute_groups %}
+            {% for group in attribute_groups %}
+                <div class="mb-3">
+                    <label for="attr_{{ group.grouper }}" class="form-label fw-bold">{{ group.grouper }}:</label>
+                    <select name="attribute_{{ group.grouper }}" id="attr_{{ group.grouper }}" class="form-select" required>
+                        <option value="" disabled selected>Select a {{ group.grouper }}</option>
+                        {% for attr in group.list %}
+                            <option value="{{ attr.value }}">{{ attr.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% endfor %}
+            {% for option in product.options.all %}
+                <div class="mb-3 p-3 bg-light border rounded">
+                    <label class="form-label fw-bold text-primary">{{ option.name }}</label>
+
+                    {% if option.input_type == 'text' %}
+                        <input type="text" name="custom_attr_{{ option.id }}" class="form-control" placeholder="Enter {{ option.name|lower }}..." required>
+
+                    {% elif option.input_type == 'number' %}
+                        <input type="number" name="custom_attr_{{ option.id }}" class="form-control" required>
+
+                    {% elif option.input_type == 'file' %}
+                        <p class="small text-muted mb-1">Please upload your file here.</p>
+                        <input type="file" name="custom_attr_{{ option.id }}" class="form-control" required>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-lg btn-warning w-100">Add to Cart</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

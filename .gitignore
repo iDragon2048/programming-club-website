@@ -1,0 +1,11 @@
+.env
+keys.json
+db.sqlite3
+
+# User-uploaded media files
+media/
+
+# Collected static files (production output)
+staticfiles/
+static_root/
+static/

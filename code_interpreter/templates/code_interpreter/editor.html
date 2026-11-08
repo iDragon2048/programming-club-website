@@ -1,0 +1,527 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Awty Programming Club - Code Editor</title>
+
+    <!-- CodeMirror Assets -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/clike/clike.min.js"></script>
+
+    <!-- Pyodide -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+
+    <style>
+        /* Modern Design System & CSS Variables */
+        :root {
+            /* Light Theme (Default) */
+            --bg-primary: #f8fafc;
+            --header-bg: rgba(248, 250, 252, 0.85);
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --accent-blue: #0284c7;
+            --accent-purple: #6366f1;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            --gradient-accent: linear-gradient(135deg, #0284c7 0%, #6366f1 100%);
+            --nav-hover: rgba(0, 0, 0, 0.05);
+            --code-bg: #1e293b;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Theme Variables */
+            --bg-primary: #0f172a;
+            --header-bg: rgba(15, 23, 42, 0.85);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-purple: #818cf8;
+            --accent-green: #34d399;
+            --accent-red: #f87171;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            --gradient-accent: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+            --nav-hover: rgba(255, 255, 255, 0.05);
+            --code-bg: #0b0f19;
+        }
+
+        /* Base Reset */
+        * { box-sizing: border-box; margin: 0; padding: 0; scroll-behavior: smooth; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            padding-top: 90px; /* Space for fixed header */
+        }
+
+        /* Top Navigation Bar */
+        header {
+            position: fixed;
+            top: 0; left: 0; width: 100%;
+            background: var(--header-bg);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.3rem; font-weight: 700; text-decoration: none;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        nav { display: flex; align-items: center; gap: 15px; }
+        nav a {
+            color: var(--text-muted); text-decoration: none;
+            font-weight: 600; font-size: 0.95rem; padding: 8px 16px;
+            border-radius: 6px; transition: all 0.2s ease;
+        }
+        nav a:hover { color: var(--text-main); background: var(--nav-hover); }
+
+        /* Layout & Cards */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 20px;
+        }
+        .card-title { font-size: 1.5rem; margin-bottom: 15px; color: var(--text-main); }
+
+        /* Buttons & Forms */
+        .btn {
+            display: inline-block;
+            font-weight: 600; padding: 10px 18px; border-radius: 8px;
+            cursor: pointer; border: none; font-size: 0.95rem;
+            transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            text-decoration: none;
+        }
+        .btn:hover { transform: translateY(-1px); opacity: 0.9; }
+        .btn-primary { background: var(--accent-blue); color: #fff; }
+        .btn-success { background: var(--accent-green); color: #fff; }
+        .btn-danger { background: var(--accent-red); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-ai { background: var(--gradient-accent); color: white; }
+
+        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center;}
+
+        select, input[type="text"] {
+            padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);
+            background: var(--bg-primary); color: var(--text-main);
+            font-family: inherit; font-size: 0.95rem;
+        }
+
+        /* Editor & Terminal Setup */
+        .CodeMirror { border-radius: 8px; border: 1px solid var(--border-color); height: 400px; font-size: 15px; font-family: 'Courier New', Courier, monospace;}
+
+        .terminal-box {
+            background-color: var(--code-bg);
+            padding: 15px; border-radius: 8px;
+            margin-bottom: 15px; border: 1px solid #333;
+        }
+        #output {
+            color: #34d399; min-height: 80px; white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;
+        }
+        #stdin-input {
+            width: 100%; background-color: rgba(0,0,0,0.3); color: #fff;
+            border: 1px solid #444; border-radius: 6px; padding: 10px;
+            font-family: monospace; box-sizing: border-box;
+        }
+
+        #pygame-canvas {
+            background-color: #000; display: block; margin: 20px auto;
+            border-radius: 8px; box-shadow: var(--card-shadow); max-width: 100%;
+        }
+
+        /* AI Review Section */
+        #ai-review-container {
+            display: none;
+            background: rgba(99, 102, 241, 0.05);
+            border: 1px solid var(--accent-purple);
+        }
+        #ai-review-output { white-space: pre-wrap; color: var(--text-main); }
+    </style>
+</head>
+
+<body data-theme="dark"> <!-- Remove data-theme="dark" to default to light mode -->
+
+    <!-- Header Navigation Bar -->
+    <header>
+        <a href="{% url 'home' %}" class="logo">Awty Programming Club</a>
+        <nav>
+            <a href="{% url 'file_list' %}">Files</a>
+            <button id="theme-toggle" class="btn btn-outline" style="padding: 5px 10px;">🌙</button>
+        </nav>
+    </header>
+
+    <div class="container">
+
+        <!-- Controls & Editor Card -->
+        <div class="card">
+            <h2 class="card-title">Code Studio</h2>
+
+            <div class="toolbar">
+                <select id="language-select">
+                    <option value="python">Python (Pyodide / Pygame)</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="cpp">C++</option>
+                    <option value="java">Java</option>
+                    <option value="csharp">C#</option>
+                </select>
+
+                <button type="button" id="btn-template-blank" class="btn btn-outline">Blank</button>
+                <button type="button" id="btn-template-square" class="btn btn-outline">Moving Square</button>
+                <button type="button" id="btn-template-gdclone" class="btn btn-outline">Geometry Dash</button>
+            </div>
+
+            <form method="post" novalidate style="margin-bottom: 15px;">
+                {% csrf_token %}
+                <div style="margin-bottom: 10px;">
+                    <label for="id_title" style="font-weight: 600; display: block; margin-bottom: 5px;">File Title:</label>
+                    {{ form.title }}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    {{ form.code }}
+                </div>
+                <button type="submit" class="btn btn-success">Save File</button>
+            </form>
+
+            <div class="toolbar" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                <button id="run-button" class="btn btn-primary">▶ Run Code</button>
+                <button id="stop-button" class="btn btn-danger">■ Stop / Reset</button>
+                <button id="ai-review-btn" class="btn btn-ai">✨ AI Code Review</button>
+            </div>
+        </div>
+
+        <!-- AI Review Box (Hidden by default) -->
+        <div id="ai-review-container" class="card">
+            <h3 style="color: var(--accent-purple); margin-bottom: 10px;">✨ AI Feedback</h3>
+            <div id="ai-review-output"></div>
+        </div>
+
+        <!-- Terminal & Input Card -->
+        <div class="card">
+            <h2 class="card-title" style="font-size: 1.2rem;">Console Terminal</h2>
+            <div class="terminal-box">
+                <div id="output">System ready. Click "Run Code" to execute.</div>
+
+                <label for="stdin-input" style="color: #aaa; font-family: monospace; font-size: 0.85rem; display: block; margin-bottom: 4px;">
+                    STANDARD INPUT (stdin):
+                </label>
+                <textarea id="stdin-input" rows="2" placeholder="Type input here (one entry per line)..."></textarea>
+            </div>
+
+            <canvas id="pygame-canvas" width="1000" height="500" tabindex="0"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. Theme Toggle ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            const body = document.body;
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme');
+                themeToggleBtn.textContent = '☀️';
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                themeToggleBtn.textContent = '🌙';
+            }
+        });
+
+        // --- 2. Django CSRF Token Helper for Fetch API ---
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // --- 3. AI Code Review Logic ---
+        document.getElementById('ai-review-btn').addEventListener('click', async function() {
+            const code = editor.getValue();
+            const language = document.getElementById("language-select").value;
+            const container = document.getElementById("ai-review-container");
+            const outputArea = document.getElementById("ai-review-output");
+
+            if (!code.trim()) {
+                alert("Please write some code before requesting a review.");
+                return;
+            }
+
+            container.style.display = "block";
+            outputArea.textContent = "🧠 Analyzing your code... (This may take a few seconds)";
+
+            try {
+                const response = await fetch("{% url 'code_review_api' %}", { // Ensure this matches your urls.py name
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ code: code, language: language })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    outputArea.textContent = data.review;
+                } else {
+                    outputArea.textContent = "Error: " + data.message;
+                }
+            } catch (error) {
+                outputArea.textContent = "Network Error: Could not reach the AI service.";
+                console.error(error);
+            }
+        });
+
+        // --- 4. Existing Pyodide & CodeMirror Logic ---
+
+        // Intercept global event listeners to protect CodeMirror from Pygame
+        function protectEditorFromPygame(originalAddEventListener) {
+            return function(type, listener, options) {
+                if (type === 'keydown' || type === 'keyup' || type === 'keypress') {
+                    const wrappedListener = function(e) {
+                        if (e.target && (
+                            (e.target.closest && e.target.closest('.CodeMirror')) ||
+                            e.target.tagName === 'TEXTAREA' ||
+                            e.target.tagName === 'INPUT'
+                        )) {
+                            return;
+                        }
+                        if (typeof listener === 'function') {
+                            return listener.apply(this, arguments);
+                        } else if (listener && typeof listener.handleEvent === 'function') {
+                            return listener.handleEvent(e);
+                        }
+                    };
+                    return originalAddEventListener.call(this, type, wrappedListener, options);
+                }
+                return originalAddEventListener.call(this, type, listener, options);
+            };
+        }
+        window.addEventListener = protectEditorFromPygame(window.addEventListener);
+        document.addEventListener = protectEditorFromPygame(document.addEventListener);
+
+        // Initialize CodeMirror (Assuming your form uses id 'id_code' or similar. Adjust if needed)
+        // Check if Django form rendered a textarea. Fallback to selecting by name if ID isn't exactly 'code-editor-textarea'
+        const textarea = document.querySelector('textarea[name="code"]') || document.getElementById("code-editor-textarea");
+        var editor = CodeMirror.fromTextArea(textarea, {
+            lineNumbers: true, mode: "python", theme: "material-darker", indentUnit: 4
+        });
+
+        async function loadTemplate(staticUrl) {
+            try {
+                const response = await fetch(staticUrl);
+                if (!response.ok) throw new Error("Template not found");
+                const code = await response.text();
+                editor.setValue(code);
+            } catch (error) {
+                console.error("Error loading template:", error);
+                document.getElementById("output").textContent += "\n[Error]: Could not load template file.";
+            }
+        }
+
+        // Attach template listeners safely
+        const btnBlank = document.getElementById("btn-template-blank");
+        if(btnBlank) btnBlank.addEventListener("click", () => loadTemplate("{% static 'py_templates/blank.py' %}"));
+
+        const btnSquare = document.getElementById("btn-template-square");
+        if(btnSquare) btnSquare.addEventListener("click", () => loadTemplate("{% static 'py_templates/square.py' %}"));
+
+        const btnGd = document.getElementById("btn-template-gdclone");
+        if(btnGd) btnGd.addEventListener("click", () => loadTemplate("{% static 'py_templates/gdclone.py' %}"));
+
+        const form = document.querySelector('form');
+        if(form) {
+            form.addEventListener('submit', function() { editor.save(); });
+        }
+
+        const output = document.getElementById("output");
+        const runButton = document.getElementById("run-button");
+        let pyodide;
+
+        async function main() {
+            output.textContent = "Initializing Python interpreter...";
+            pyodide = await loadPyodide();
+            pyodide.canvas.setCanvas2D(document.getElementById("pygame-canvas"));
+            await pyodide.loadPackage("pygame-ce");
+            output.textContent = "Interpreter ready. Click 'Run Code'.";
+            runButton.disabled = false;
+        }
+
+        let pyodideReadyPromise = main();
+        runButton.disabled = true;
+
+        const languageSelect = document.getElementById("language-select");
+        languageSelect.addEventListener("change", (e) => {
+            const lang = e.target.value;
+            let mode = "python";
+            if (lang === "javascript") mode = "javascript";
+            else if (lang === "cpp") mode = "text/x-c++src";
+            else if (lang === "java") mode = "text/x-java";
+            else if (lang === "csharp") mode = "text/x-csharp";
+            editor.setOption("mode", mode);
+        });
+
+        const judge0LanguageIds = { "cpp": 54, "java": 62, "csharp": 51 };
+
+        async function runCode() {
+            output.textContent = "Running...\n";
+            const code = editor.getValue();
+            const selectedLang = languageSelect.value;
+            const userInput = document.getElementById("stdin-input").value;
+
+            // 1. PYTHON
+            if (selectedLang === "python") {
+                try {
+                    await pyodideReadyPromise;
+                    pyodide.setStdout({ batched: (msg) => { output.textContent += msg + "\n"; } });
+                    pyodide.setStderr({ batched: (msg) => { output.textContent += msg + "\n"; } });
+                    output.textContent = "";
+
+                    document.getElementById("pygame-canvas").focus();
+
+                    pyodide.setStdin({
+                        isatty: true,
+                        stdin: () => {
+                            const stdinTextarea = document.getElementById("stdin-input");
+                            if (stdinTextarea.value.trim().length > 0) {
+                                const lines = stdinTextarea.value.split("\n");
+                                const nextLine = lines.shift();
+                                stdinTextarea.value = lines.join("\n");
+                                return nextLine;
+                            }
+                            const userInput = window.prompt("Python input requested:");
+                            if (userInput !== null) {
+                                output.textContent += userInput + "\n";
+                                return userInput;
+                            }
+                            return "";
+                        }
+                    });
+
+                    let result = await pyodide.runPythonAsync(code);
+                    if (result !== undefined) {
+                        output.textContent += "\nReturn value: " + result;
+                    }
+                } catch (err) {
+                    output.textContent = String(err);
+                }
+                return;
+            }
+
+            // 2. JAVASCRIPT
+            if (selectedLang === "javascript") {
+                output.textContent = "";
+                const originalLog = console.log;
+                console.log = function(...args) {
+                    output.textContent += args.join(" ") + "\n";
+                    originalLog.apply(console, args);
+                };
+                try {
+                    const runJS = new Function(code);
+                    runJS();
+                } catch (err) {
+                    output.textContent = "[JS Error]: " + err.message;
+                } finally {
+                    console.log = originalLog;
+                }
+                return;
+            }
+
+            // 3. JUDGE0 (C++, Java, C#)
+            const languageId = judge0LanguageIds[selectedLang];
+            if (!languageId) {
+                output.textContent = "[Error]: Unsupported language selected.";
+                return;
+            }
+
+            try {
+                if (!userInput.trim()) {
+                    output.textContent = "[Notice]: Running non-interactive execution.\nIf your program requires input, please type it in the Standard Input box before clicking Run.\n\nExecuting program...\n";
+                }
+                const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        language_id: languageId,
+                        source_code: code,
+                        stdin: userInput
+                    })
+                });
+                const data = await response.json();
+                let finalOutput = data.stdout || data.stderr || data.compile_output;
+                if (!finalOutput && data.status) finalOutput = `[Status]: ${data.status.description}`;
+                output.textContent += (finalOutput || "\n[Program executed with no output]");
+            } catch (err) {
+                output.textContent = "[API Error]: " + err.message;
+            }
+        }
+
+        // Prevent browser scrolling for game keys
+        window.addEventListener("keydown", function(e) {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.closest('.CodeMirror')) return;
+            const gameKeys = ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+            if (gameKeys.includes(e.code)) e.preventDefault();
+        }, { passive: false });
+
+        runButton.addEventListener("click", runCode);
+
+        const stopButton = document.getElementById("stop-button");
+        stopButton.addEventListener("click", async function() {
+            if (!pyodide) return;
+            output.textContent += "\n[System]: Stopping program...\n";
+            try {
+                await pyodide.runPythonAsync(`
+import sys
+if 'pygame' in sys.modules:
+    import pygame
+    if pygame.get_init():
+        pygame.event.post(pygame.event.Event(pygame.QUIT))
+                `);
+                setTimeout(() => {
+                    const canvas = document.getElementById("pygame-canvas");
+                    const ctx = canvas.getContext("2d");
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    output.textContent += "[System]: Reset complete. Ready for new code.\n";
+                }, 100);
+            } catch (err) {
+                console.warn("Stop button error:", err);
+            }
+        });
+    </script>
+</body>
+</html>
