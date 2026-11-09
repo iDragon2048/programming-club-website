@@ -8,4 +8,4 @@ media/
 # Collected static files (production output)
 staticfiles/
 static_root/
-static/
+static/__pycache__/
